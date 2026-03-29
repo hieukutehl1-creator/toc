@@ -275,6 +275,7 @@
         let imageUrls = JSON.parse(localStorage.getItem('tocfl_image_urls') || '{}');
         let audioUrls = JSON.parse(localStorage.getItem('tocfl_audio_urls') || '{}');
         let questionTexts = JSON.parse(localStorage.getItem('tocfl_question_texts') || '{}');
+        let optionExplanations = JSON.parse(localStorage.getItem('tocfl_option_explanations') || '{}');
         let passages = JSON.parse(localStorage.getItem('tocfl_passages') || '{}');
         let notes = localStorage.getItem('tocfl_notes') || '';
         let isEditMode = false;
@@ -444,8 +445,8 @@
             if (answers[currentQuestion]) {
                 if (correctAnswers[currentQuestion]) {
                     badge.innerHTML = isCorrect 
-                        ? `<span class="flex items-center gap-1 text-green-600 font-bold"><i data-lucide="check-circle" class="w-4 h-4"></i> Chính xác</span>`
-                        : `<span class="flex items-center gap-1 text-red-500 font-bold"><i data-lucide="x-circle" class="w-4 h-4"></i> Sai rồi</span>`;
+                        ? `<span class="flex items-center gap-1 text-green-600 font-bold"><i data-lucide="check-circle" class="w-4 h-4"></i> Chính xác! Đáp án đúng: ${correctAnswers[currentQuestion]}</span>`
+                        : `<span class="flex items-center gap-1 text-red-500 font-bold"><i data-lucide="x-circle" class="w-4 h-4"></i> Chọn sai rồi</span>`;
                 } else {
                     badge.innerHTML = `<span class="flex items-center gap-1 text-blue-700 font-medium"><i data-lucide="check-circle-2" class="w-3 h-3 lg:w-4 lg:h-4"></i> Đã chọn ${answers[currentQuestion]}</span>`;
                 }
@@ -511,8 +512,12 @@
                 const isSelected = answers[currentQuestion] === opt;
                 const isCorrectOpt = correctAnswers[currentQuestion] === opt;
                 const text = (optionTexts[currentQuestion] && optionTexts[currentQuestion][opt]) || '';
+                const explanation = (optionExplanations[currentQuestion] && optionExplanations[currentQuestion][opt]) || '';
 
                 const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col gap-2';
+
+                const optionRow = document.createElement('div');
                 let bgClass = 'border-gray-100 bg-white hover:border-gray-300';
                 
                 if (isSelected) {
@@ -523,7 +528,7 @@
                     }
                 }
 
-                wrapper.className = `group relative flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 ${bgClass}`;
+                optionRow.className = `group relative flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 ${bgClass}`;
 
                 // Option Label (A, B, C, D)
                 const label = document.createElement('button');
@@ -543,17 +548,34 @@
 
                 // Option Content
                 if (isEditMode) {
+                    const contentCol = document.createElement('div');
+                    contentCol.className = 'flex-1 flex flex-col gap-2';
+
                     const input = document.createElement('textarea');
                     input.placeholder = `Nhập nội dung đáp án ${opt}...`;
                     input.value = text;
-                    input.className = 'flex-1 bg-transparent border-none focus:ring-0 text-sm lg:text-base resize-none py-1 h-auto min-h-[40px]';
+                    input.className = 'w-full bg-transparent border-none focus:ring-0 text-sm lg:text-base resize-none py-1 h-auto min-h-[40px]';
                     input.oninput = (e) => {
                         if (!optionTexts[currentQuestion]) optionTexts[currentQuestion] = {};
                         optionTexts[currentQuestion][opt] = e.target.value;
                         localStorage.setItem('tocfl_option_texts', JSON.stringify(optionTexts));
                     };
-                    wrapper.appendChild(label);
-                    wrapper.appendChild(input);
+
+                    const expInput = document.createElement('textarea');
+                    expInput.placeholder = `Nhập giải thích cho đáp án ${opt}...`;
+                    expInput.value = explanation;
+                    expInput.className = 'w-full bg-blue-50/50 border border-blue-100 rounded-lg p-2 text-xs lg:text-sm focus:ring-1 focus:ring-blue-300 resize-none h-auto min-h-[60px]';
+                    expInput.oninput = (e) => {
+                        if (!optionExplanations[currentQuestion]) optionExplanations[currentQuestion] = {};
+                        optionExplanations[currentQuestion][opt] = e.target.value;
+                        localStorage.setItem('tocfl_option_explanations', JSON.stringify(optionExplanations));
+                    };
+
+                    contentCol.appendChild(input);
+                    contentCol.appendChild(expInput);
+                    
+                    optionRow.appendChild(label);
+                    optionRow.appendChild(contentCol);
 
                     // Set Correct Button
                     const setCorrectBtn = document.createElement('button');
@@ -565,21 +587,39 @@
                         localStorage.setItem('tocfl_correct_answers', JSON.stringify(correctAnswers));
                         loadQuestion();
                     };
-                    wrapper.appendChild(setCorrectBtn);
+                    optionRow.appendChild(setCorrectBtn);
                 } else {
                     const content = document.createElement('div');
                     content.className = 'flex-1 text-sm lg:text-base text-gray-700 cursor-pointer py-1';
                     content.innerText = text || `(Trống)`;
                     content.onclick = () => selectOption(opt);
-                    wrapper.appendChild(label);
-                    wrapper.appendChild(content);
+                    optionRow.appendChild(label);
+                    optionRow.appendChild(content);
 
                     if (isSelected && correctAnswers[currentQuestion]) {
                         const icon = document.createElement('div');
                         icon.innerHTML = `<i data-lucide="${isCorrect ? 'check' : 'x'}" class="w-5 h-5"></i>`;
                         icon.className = isCorrect ? 'text-green-600' : 'text-red-500';
-                        wrapper.appendChild(icon);
+                        optionRow.appendChild(icon);
                     }
+                }
+
+                wrapper.appendChild(optionRow);
+
+                // Explanation Display (only if correct answer is selected)
+                if (!isEditMode && isCorrect && explanation) {
+                    const expDisplay = document.createElement('div');
+                    expDisplay.className = 'ml-14 lg:ml-16 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-xl text-xs lg:text-sm text-blue-800 animate-in fade-in slide-in-from-top-2 duration-300';
+                    expDisplay.innerHTML = `
+                        <div class="flex items-start gap-2">
+                            <i data-lucide="info" class="w-4 h-4 mt-0.5 shrink-0"></i>
+                            <div>
+                                <span class="font-bold uppercase text-[10px] tracking-wider block mb-1">Giải thích đáp án ${opt}</span>
+                                <p class="leading-relaxed">${explanation}</p>
+                            </div>
+                        </div>
+                    `;
+                    wrapper.appendChild(expDisplay);
                 }
 
                 optionsContainer.appendChild(wrapper);
@@ -589,7 +629,8 @@
             // Update Correct Answer Indicator
             const indicator = document.getElementById('correct-answer-indicator');
             const indicatorText = document.getElementById('correct-answer-text');
-            if (isEditMode && correctAnswers[currentQuestion]) {
+            const showIndicator = (isEditMode && correctAnswers[currentQuestion]) || (answers[currentQuestion] && isCorrect);
+            if (showIndicator) {
                 indicator.classList.remove('hidden');
                 indicatorText.innerText = correctAnswers[currentQuestion];
             } else {
@@ -725,6 +766,7 @@
                 imageUrls = {};
                 audioUrls = {};
                 questionTexts = {};
+                optionExplanations = {};
                 passages = {};
                 localStorage.removeItem('tocfl_answers');
                 localStorage.removeItem('tocfl_option_texts');
@@ -732,6 +774,7 @@
                 localStorage.removeItem('tocfl_image_urls');
                 localStorage.removeItem('tocfl_audio_urls');
                 localStorage.removeItem('tocfl_question_texts');
+                localStorage.removeItem('tocfl_option_explanations');
                 localStorage.removeItem('tocfl_passages');
                 localStorage.removeItem('tocfl_notes');
                 editor.innerHTML = '';
