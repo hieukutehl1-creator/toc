@@ -138,6 +138,22 @@
                     <div id="status-badge" class="text-xs lg:text-sm font-medium text-gray-400">Chưa trả lời</div>
                 </div>
 
+                <!-- Passage Section (for ranges 14-18, 19-23, 28-30) -->
+                <div id="passage-section" class="hidden space-y-4 p-4 lg:p-6 bg-amber-50 rounded-2xl border border-amber-100 shadow-sm">
+                    <div class="flex items-center gap-2 text-amber-800 font-bold text-sm lg:text-base mb-2">
+                        <i data-lucide="book-open" class="w-4 h-4 lg:w-5 lg:h-5"></i>
+                        <span>Đoạn văn (Reading Passage)</span>
+                    </div>
+                    <div id="passage-display" class="text-sm lg:text-base text-gray-800 leading-relaxed whitespace-pre-wrap"></div>
+                    <textarea id="passage-input" class="hidden w-full p-4 bg-white border border-amber-200 rounded-xl text-sm lg:text-base focus:ring-2 focus:ring-amber-500 min-h-[150px] lg:min-h-[200px]" placeholder="Nhập đoạn văn tại đây..."></textarea>
+                </div>
+
+                <!-- Question Text Section (for ranges 6-13, 14-30) -->
+                <div id="question-text-section" class="hidden space-y-4">
+                    <div id="question-text-display" class="text-lg lg:text-xl font-medium text-gray-800"></div>
+                    <textarea id="question-text-input" class="hidden w-full p-4 bg-white border border-gray-200 rounded-xl text-sm lg:text-base focus:ring-2 focus:ring-blue-500" placeholder="Nhập nội dung câu hỏi..."></textarea>
+                </div>
+
                 <!-- Media Section -->
                 <div class="flex flex-col gap-4 lg:gap-6">
                     <!-- Audio Upload -->
@@ -254,6 +270,8 @@
         let correctAnswers = JSON.parse(localStorage.getItem('tocfl_correct_answers') || '{}');
         let imageUrls = JSON.parse(localStorage.getItem('tocfl_image_urls') || '{}');
         let audioUrls = JSON.parse(localStorage.getItem('tocfl_audio_urls') || '{}');
+        let questionTexts = JSON.parse(localStorage.getItem('tocfl_question_texts') || '{}');
+        let passages = JSON.parse(localStorage.getItem('tocfl_passages') || '{}');
         let notes = localStorage.getItem('tocfl_notes') || '';
         let isEditMode = false;
         let timeLeft = 60 * 60;
@@ -296,6 +314,25 @@
 
         function format(cmd) {
             document.execCommand(cmd, false, null);
+        }
+
+        function getQuestionType(index) {
+            const q = index + 1;
+            if (q >= 1 && q <= 5) return 'audio_image';
+            if (q >= 6 && q <= 13) return 'text_only';
+            if (q >= 14 && q <= 18) return 'passage_text';
+            if (q >= 19 && q <= 23) return 'passage_text';
+            if (q >= 24 && q <= 27) return 'image_only';
+            if (q >= 28 && q <= 30) return 'passage_text';
+            return 'default';
+        }
+
+        function getPassageKey(index) {
+            const q = index + 1;
+            if (q >= 14 && q <= 18) return 'passage_14_18';
+            if (q >= 19 && q <= 23) return 'passage_19_23';
+            if (q >= 28 && q <= 30) return 'passage_28_30';
+            return null;
         }
 
         // Sidebar Toggle
@@ -382,7 +419,11 @@
 
         // Question Navigation
         function loadQuestion() {
-            document.getElementById('question-title').innerText = `Câu ${currentQuestion + 1}`;
+            const qNum = currentQuestion + 1;
+            const qType = getQuestionType(currentQuestion);
+            const pKey = getPassageKey(currentQuestion);
+
+            document.getElementById('question-title').innerText = `Câu ${qNum}`;
             
             // Update Grid Styles
             for (let i = 0; i < totalQuestions; i++) {
@@ -408,6 +449,55 @@
                 badge.innerText = 'Chưa trả lời';
             }
             lucide.createIcons();
+
+            // Handle Passage Section
+            const passageSection = document.getElementById('passage-section');
+            const passageDisplay = document.getElementById('passage-display');
+            const passageInput = document.getElementById('passage-input');
+            if (pKey) {
+                passageSection.classList.remove('hidden');
+                const pText = passages[pKey] || '';
+                if (isEditMode) {
+                    passageDisplay.classList.add('hidden');
+                    passageInput.classList.remove('hidden');
+                    passageInput.value = pText;
+                    passageInput.oninput = (e) => {
+                        passages[pKey] = e.target.value;
+                        localStorage.setItem('tocfl_passages', JSON.stringify(passages));
+                    };
+                } else {
+                    passageDisplay.classList.remove('hidden');
+                    passageInput.classList.add('hidden');
+                    passageDisplay.innerText = pText || '(Chưa có đoạn văn)';
+                }
+            } else {
+                passageSection.classList.add('hidden');
+            }
+
+            // Handle Question Text Section
+            const qTextSection = document.getElementById('question-text-section');
+            const qTextDisplay = document.getElementById('question-text-display');
+            const qTextInput = document.getElementById('question-text-input');
+            const needsQText = qType === 'text_only' || qType === 'passage_text';
+            if (needsQText) {
+                qTextSection.classList.remove('hidden');
+                const qText = questionTexts[currentQuestion] || '';
+                if (isEditMode) {
+                    qTextDisplay.classList.add('hidden');
+                    qTextInput.classList.remove('hidden');
+                    qTextInput.value = qText;
+                    qTextInput.oninput = (e) => {
+                        questionTexts[currentQuestion] = e.target.value;
+                        localStorage.setItem('tocfl_question_texts', JSON.stringify(questionTexts));
+                    };
+                } else {
+                    qTextDisplay.classList.remove('hidden');
+                    qTextInput.classList.add('hidden');
+                    qTextDisplay.innerText = qText || '(Chưa có nội dung câu hỏi)';
+                }
+            } else {
+                qTextSection.classList.add('hidden');
+            }
 
             // Render Options
             const optionsContainer = document.getElementById('options-container');
@@ -503,37 +593,53 @@
             }
 
             // Update Media
-            const imgPreview = document.getElementById('image-preview');
-            const imgPlaceholder = document.getElementById('image-placeholder');
-            const removeImgBtn = document.getElementById('remove-image');
-            if (imageUrls[currentQuestion]) {
-                imgPreview.src = imageUrls[currentQuestion];
-                imgPreview.classList.remove('hidden');
-                imgPlaceholder.classList.add('hidden');
-                removeImgBtn.classList.remove('hidden');
+            const imgSection = document.getElementById('image-input').closest('.space-y-4');
+            const audioSection = document.getElementById('audio-input').closest('.space-y-4');
+            
+            const needsImg = qType === 'audio_image' || qType === 'image_only';
+            const needsAudio = qType === 'audio_image';
+
+            if (needsImg) {
+                imgSection.classList.remove('hidden');
+                const imgPreview = document.getElementById('image-preview');
+                const imgPlaceholder = document.getElementById('image-placeholder');
+                const removeImgBtn = document.getElementById('remove-image');
+                if (imageUrls[currentQuestion]) {
+                    imgPreview.src = imageUrls[currentQuestion];
+                    imgPreview.classList.remove('hidden');
+                    imgPlaceholder.classList.add('hidden');
+                    removeImgBtn.classList.remove('hidden');
+                } else {
+                    imgPreview.classList.add('hidden');
+                    imgPlaceholder.classList.remove('hidden');
+                    removeImgBtn.classList.add('hidden');
+                }
             } else {
-                imgPreview.classList.add('hidden');
-                imgPlaceholder.classList.remove('hidden');
-                removeImgBtn.classList.add('hidden');
+                imgSection.classList.add('hidden');
             }
 
-            const audioPlayer = document.getElementById('audio-player');
-            const audioContainer = document.getElementById('audio-player-container');
-            const audioPlaceholder = document.getElementById('audio-placeholder');
-            const removeAudioBtn = document.getElementById('remove-audio');
-            
-            audioPlayer.pause();
+            if (needsAudio) {
+                audioSection.classList.remove('hidden');
+                const audioPlayer = document.getElementById('audio-player');
+                const audioContainer = document.getElementById('audio-player-container');
+                const audioPlaceholder = document.getElementById('audio-placeholder');
+                const removeAudioBtn = document.getElementById('remove-audio');
+                
+                audioPlayer.pause();
 
-            if (audioUrls[currentQuestion]) {
-                audioPlayer.src = audioUrls[currentQuestion];
-                audioContainer.classList.remove('hidden');
-                audioPlaceholder.classList.add('hidden');
-                removeAudioBtn.classList.remove('hidden');
+                if (audioUrls[currentQuestion]) {
+                    audioPlayer.src = audioUrls[currentQuestion];
+                    audioContainer.classList.remove('hidden');
+                    audioPlaceholder.classList.add('hidden');
+                    removeAudioBtn.classList.remove('hidden');
+                } else {
+                    audioContainer.classList.add('hidden');
+                    audioPlaceholder.classList.remove('hidden');
+                    removeAudioBtn.classList.add('hidden');
+                    audioPlayer.src = '';
+                }
             } else {
-                audioContainer.classList.add('hidden');
-                audioPlaceholder.classList.remove('hidden');
-                removeAudioBtn.classList.add('hidden');
-                audioPlayer.src = '';
+                audioSection.classList.add('hidden');
             }
 
             // Update Progress
@@ -614,11 +720,15 @@
                 correctAnswers = {};
                 imageUrls = {};
                 audioUrls = {};
+                questionTexts = {};
+                passages = {};
                 localStorage.removeItem('tocfl_answers');
                 localStorage.removeItem('tocfl_option_texts');
                 localStorage.removeItem('tocfl_correct_answers');
                 localStorage.removeItem('tocfl_image_urls');
                 localStorage.removeItem('tocfl_audio_urls');
+                localStorage.removeItem('tocfl_question_texts');
+                localStorage.removeItem('tocfl_passages');
                 localStorage.removeItem('tocfl_notes');
                 editor.innerHTML = '';
                 timeLeft = 60 * 60;
