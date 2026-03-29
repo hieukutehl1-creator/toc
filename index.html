@@ -85,6 +85,10 @@
                 <button onclick="handleLogin()" class="w-full py-4 bg-blue-700 text-white rounded-xl font-bold text-lg hover:bg-blue-800 transition-all shadow-lg active:scale-[0.98]">
                     Đăng nhập
                 </button>
+                <button onclick="handleGoogleLogin()" class="w-full py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-bold text-lg hover:bg-gray-50 transition-all shadow-sm active:scale-[0.98] flex items-center justify-center gap-3">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-6 h-6">
+                    Đăng nhập bằng Google (Admin)
+                </button>
                 <div class="relative py-4">
                     <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-100"></div></div>
                     <div class="relative flex justify-center text-xs uppercase"><span class="bg-white px-2 text-gray-400 font-bold">Hoặc</span></div>
@@ -393,7 +397,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
 
         // Load Firebase configuration from the project file
         const firebaseConfig = {
@@ -435,6 +439,8 @@
             const errorMsg = document.getElementById('login-error');
 
             if (user === 'quynh1234' && pass === '12345') {
+                // This is a legacy login for UI only, it won't grant Firestore permissions
+                // To save, the user MUST use Google Login below
                 isAdmin = true;
                 document.getElementById('login-modal').classList.add('hidden');
                 document.getElementById('admin-controls').classList.remove('hidden');
@@ -444,6 +450,41 @@
                 errorMsg.classList.remove('hidden');
             }
         }
+
+        async function handleGoogleLogin() {
+            const provider = new GoogleAuthProvider();
+            const errorMsg = document.getElementById('login-error');
+            try {
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                
+                // Check if the logged in user is the admin email
+                if (user.email === 'hieukutehl1@gmail.com') {
+                    isAdmin = true;
+                    document.getElementById('login-modal').classList.add('hidden');
+                    document.getElementById('admin-controls').classList.remove('hidden');
+                    loadQuestion();
+                } else {
+                    errorMsg.innerText = "Email này không có quyền Admin!";
+                    errorMsg.classList.remove('hidden');
+                    await signOut(auth);
+                }
+            } catch (error) {
+                console.error("Google Login Error:", error);
+                errorMsg.innerText = "Lỗi đăng nhập Google: " + error.message;
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        // Listen for auth state changes to persist admin status
+        onAuthStateChanged(auth, (user) => {
+            if (user && user.email === 'hieukutehl1@gmail.com') {
+                isAdmin = true;
+                document.getElementById('login-modal').classList.add('hidden');
+                document.getElementById('admin-controls').classList.remove('hidden');
+                loadQuestion();
+            }
+        });
 
         function continueAsStudent() {
             isAdmin = false;
@@ -1193,6 +1234,7 @@
         window.removeMedia = removeMedia;
         window.resetPractice = resetPractice;
         window.handleLogin = handleLogin;
+        window.handleGoogleLogin = handleGoogleLogin;
         window.continueAsStudent = continueAsStudent;
         window.saveExamToDatabase = saveExamToDatabase;
         window.toggleShareModal = toggleShareModal;
