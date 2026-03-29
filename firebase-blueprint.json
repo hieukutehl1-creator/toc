@@ -1,0 +1,26 @@
+{
+  "entities": {
+    "Exam": {
+      "title": "Exam Set",
+      "description": "A set of 30 TOCFL practice questions",
+      "type": "object",
+      "properties": {
+        "optionTexts": { "type": "object", "description": "Map of question index to option texts (A, B, C, D)" },
+        "correctAnswers": { "type": "object", "description": "Map of question index to correct option" },
+        "imageUrls": { "type": "object", "description": "Map of question index to image URL" },
+        "audioUrls": { "type": "object", "description": "Map of question index to audio URL" },
+        "questionTexts": { "type": "object", "description": "Map of question index to question text" },
+        "optionExplanations": { "type": "object", "description": "Map of question index to option explanations" },
+        "passages": { "type": "object", "description": "Map of passage key to text" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the exam was last updated" }
+      },
+      "required": ["updatedAt"]
+    }
+  },
+  "firestore": {
+    "/exams/{examId}": {
+      "schema": "Exam",
+      "description": "Collection of exam sets"
+    }
+  }
+}
