@@ -148,12 +148,6 @@
                     <textarea id="passage-input" class="hidden w-full p-4 bg-white border border-amber-200 rounded-xl text-sm lg:text-base focus:ring-2 focus:ring-amber-500 min-h-[150px] lg:min-h-[200px]" placeholder="Nhập đoạn văn tại đây..."></textarea>
                 </div>
 
-                <!-- Question Text Section (for ranges 6-13, 14-30) -->
-                <div id="question-text-section" class="hidden space-y-4">
-                    <div id="question-text-display" class="text-lg lg:text-xl font-medium text-gray-800"></div>
-                    <textarea id="question-text-input" class="hidden w-full p-4 bg-white border border-gray-200 rounded-xl text-sm lg:text-base focus:ring-2 focus:ring-blue-500" placeholder="Nhập nội dung câu hỏi..."></textarea>
-                </div>
-
                 <!-- Media Section -->
                 <div class="flex flex-col gap-4 lg:gap-6">
                     <!-- Audio Upload -->
@@ -190,6 +184,16 @@
                         <button id="remove-image" onclick="removeMedia('image')" class="hidden absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-10 shadow-sm">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
+                    </div>
+
+                    <!-- Question Text Section (for ranges 6-13, 14-30) -->
+                    <div id="question-text-section" class="hidden space-y-3">
+                        <div class="flex items-center gap-2 text-blue-700 font-bold text-xs lg:text-sm uppercase tracking-wider">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i>
+                            <span>Câu hỏi</span>
+                        </div>
+                        <div id="question-text-display" class="text-lg lg:text-xl font-medium text-gray-800 leading-tight"></div>
+                        <textarea id="question-text-input" class="hidden w-full p-4 bg-white border border-gray-200 rounded-xl text-sm lg:text-base focus:ring-2 focus:ring-blue-500" placeholder="Nhập nội dung câu hỏi..."></textarea>
                     </div>
                 </div>
 
