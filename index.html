@@ -94,13 +94,15 @@
     <main class="flex-1 flex flex-col border-r border-gray-200 bg-white overflow-hidden relative">
         <!-- Header -->
         <header class="h-14 lg:h-16 border-b border-gray-100 flex items-center justify-between px-4 lg:px-8 bg-white shrink-0 shadow-sm z-30">
-            <div class="flex items-center gap-2 lg:gap-3">
-                <div class="bg-blue-700 p-1.5 lg:p-2 rounded-lg text-white">
-                    <i data-lucide="file-text" class="w-4 h-4 lg:w-5 lg:h-5"></i>
+                <div class="flex items-center gap-2 lg:gap-3">
+                    <div class="bg-blue-700 p-1.5 lg:p-2 rounded-lg text-white">
+                        <i data-lucide="file-text" class="w-4 h-4 lg:w-5 lg:h-5"></i>
+                    </div>
+                    <div class="flex flex-col -space-y-1">
+                        <h1 class="text-base lg:text-xl font-bold tracking-tight">TOCFL <span class="text-blue-700">B1</span></h1>
+                        <span class="text-[8px] lg:text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Tiếng Trung Quỳnh Phượng</span>
+                    </div>
                 </div>
-                <h1 class="text-base lg:text-xl font-bold tracking-tight">TOCFL <span class="text-blue-700">B1</span></h1>
-                <span class="watermark text-[10px] lg:text-xs font-bold ml-2 lg:ml-4 whitespace-nowrap">Tiếng Trung Quỳnh Phượng</span>
-            </div>
             
             <div class="flex items-center gap-2 lg:gap-4">
                 <button onclick="toggleReviewModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all font-semibold text-xs lg:text-sm">
@@ -135,30 +137,37 @@
                 <!-- Media Section -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
                     <!-- Image Upload -->
-                    <div class="space-y-4">
-                        <label class="flex flex-col items-center justify-center w-full h-40 lg:h-48 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group relative overflow-hidden">
+                    <div class="space-y-4 relative">
+                        <label for="image-input" class="flex flex-col items-center justify-center w-full h-40 lg:h-48 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group relative overflow-hidden">
                             <div id="image-placeholder" class="flex flex-col items-center gap-2 text-gray-400 group-hover:text-blue-700">
                                 <i data-lucide="image" class="w-8 h-8 lg:w-10 lg:h-10"></i>
                                 <span class="text-xs lg:text-sm font-medium">Tải ảnh lên</span>
                             </div>
                             <img id="image-preview" class="hidden w-full h-full object-contain p-2" src="" alt="Preview">
-                            <input type="file" id="image-input" class="hidden" accept="image/*">
                         </label>
+                        <input type="file" id="image-input" class="hidden" accept="image/*">
+                        <button id="remove-image" onclick="removeMedia('image')" class="hidden absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-10 shadow-sm">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
                     </div>
 
                     <!-- Audio Upload -->
-                    <div class="space-y-4">
-                        <div class="flex flex-col items-center justify-center w-full h-40 lg:h-48 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group relative overflow-hidden">
+                    <div class="space-y-4 relative">
+                        <label for="audio-input" class="flex flex-col items-center justify-center w-full h-40 lg:h-48 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all cursor-pointer group relative overflow-hidden">
                             <div id="audio-placeholder" class="flex flex-col items-center gap-2 text-gray-400 group-hover:text-blue-700">
                                 <i data-lucide="headphones" class="w-8 h-8 lg:w-10 lg:h-10"></i>
                                 <span class="text-xs lg:text-sm font-medium">Tải âm thanh lên</span>
                             </div>
-                            <div id="audio-player-container" class="hidden w-full p-4 flex flex-col items-center gap-4">
+                            <div id="audio-player-container" class="hidden w-full p-4 flex flex-col items-center gap-4" onclick="event.stopPropagation()">
                                 <i data-lucide="headphones" class="w-8 h-8 text-blue-700"></i>
                                 <audio id="audio-player" controls class="w-full h-10"></audio>
+                                <button onclick="document.getElementById('audio-input').click()" class="text-xs text-blue-700 hover:underline font-medium">Thay đổi âm thanh</button>
                             </div>
-                            <input type="file" id="audio-input" class="hidden" accept="audio/*">
-                        </div>
+                        </label>
+                        <input type="file" id="audio-input" class="hidden" accept="audio/*">
+                        <button id="remove-audio" onclick="removeMedia('audio')" class="hidden absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-10 shadow-sm">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -379,57 +388,36 @@
             // Update Media
             const imgPreview = document.getElementById('image-preview');
             const imgPlaceholder = document.getElementById('image-placeholder');
+            const removeImgBtn = document.getElementById('remove-image');
             if (imageUrls[currentQuestion]) {
                 imgPreview.src = imageUrls[currentQuestion];
                 imgPreview.classList.remove('hidden');
                 imgPlaceholder.classList.add('hidden');
+                removeImgBtn.classList.remove('hidden');
             } else {
                 imgPreview.classList.add('hidden');
                 imgPlaceholder.classList.remove('hidden');
+                removeImgBtn.classList.add('hidden');
             }
 
             const audioPlayer = document.getElementById('audio-player');
             const audioContainer = document.getElementById('audio-player-container');
             const audioPlaceholder = document.getElementById('audio-placeholder');
+            const removeAudioBtn = document.getElementById('remove-audio');
+            
+            // Pause current audio before switching
+            audioPlayer.pause();
+
             if (audioUrls[currentQuestion]) {
                 audioPlayer.src = audioUrls[currentQuestion];
                 audioContainer.classList.remove('hidden');
                 audioPlaceholder.classList.add('hidden');
+                removeAudioBtn.classList.remove('hidden');
             } else {
                 audioContainer.classList.add('hidden');
                 audioPlaceholder.classList.remove('hidden');
-            }
-
-            // Update Progress
-            document.getElementById('progress-text').innerText = `${Object.keys(answers).length} / ${totalQuestions}`;
-
-            // Update Buttons
-            document.getElementById('prev-btn').disabled = currentQuestion === 0;
-            document.getElementById('next-btn').disabled = currentQuestion === totalQuestions - 1;
-        }
-
-            // Update Media
-            const imgPreview = document.getElementById('image-preview');
-            const imgPlaceholder = document.getElementById('image-placeholder');
-            if (imageUrls[currentQuestion]) {
-                imgPreview.src = imageUrls[currentQuestion];
-                imgPreview.classList.remove('hidden');
-                imgPlaceholder.classList.add('hidden');
-            } else {
-                imgPreview.classList.add('hidden');
-                imgPlaceholder.classList.remove('hidden');
-            }
-
-            const audioPlayer = document.getElementById('audio-player');
-            const audioContainer = document.getElementById('audio-player-container');
-            const audioPlaceholder = document.getElementById('audio-placeholder');
-            if (audioUrls[currentQuestion]) {
-                audioPlayer.src = audioUrls[currentQuestion];
-                audioContainer.classList.remove('hidden');
-                audioPlaceholder.classList.add('hidden');
-            } else {
-                audioContainer.classList.add('hidden');
-                audioPlaceholder.classList.remove('hidden');
+                removeAudioBtn.classList.add('hidden');
+                audioPlayer.src = '';
             }
 
             // Update Progress
@@ -462,6 +450,15 @@
         function selectOption(opt) {
             answers[currentQuestion] = opt;
             localStorage.setItem('tocfl_answers', JSON.stringify(answers));
+            loadQuestion();
+        }
+
+        function removeMedia(type) {
+            if (type === 'image') {
+                delete imageUrls[currentQuestion];
+            } else {
+                delete audioUrls[currentQuestion];
+            }
             loadQuestion();
         }
 
