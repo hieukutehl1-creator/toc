@@ -211,7 +211,7 @@
             
             <div class="flex items-center gap-2 lg:gap-4">
                 <div id="admin-controls" class="hidden flex items-center gap-2 lg:gap-4">
-                    <button id="save-db-btn" onclick="saveExamToFirestore()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all font-semibold text-xs lg:text-sm shadow-sm">
+                    <button id="save-db-btn" onclick="saveExamToDatabase()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all font-semibold text-xs lg:text-sm shadow-sm">
                         <i data-lucide="database" class="w-4 h-4"></i>
                         <span class="hidden sm:inline">Lưu Database</span>
                     </button>
@@ -391,25 +391,6 @@
     </aside>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-
-        // Firebase configuration (using placeholders, will be replaced by platform)
-        const firebaseConfig = {
-            apiKey: "AIzaSy...", // Placeholder
-            authDomain: "project-id.firebaseapp.com",
-            projectId: "project-id",
-            storageBucket: "project-id.appspot.com",
-            messagingSenderId: "...",
-            appId: "..."
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
         // State Management
         let currentQuestion = 0;
         const totalQuestions = 30;
@@ -435,17 +416,10 @@
             const errorMsg = document.getElementById('login-error');
 
             if (user === 'quynh1234' && pass === '12345') {
-                try {
-                    // In a real app, we'd use proper Firebase Auth
-                    // For this specific request, we'll simulate admin status
-                    isAdmin = true;
-                    document.getElementById('login-modal').classList.add('hidden');
-                    document.getElementById('admin-controls').classList.remove('hidden');
-                    loadQuestion();
-                } catch (error) {
-                    errorMsg.innerText = "Lỗi đăng nhập. Vui lòng thử lại.";
-                    errorMsg.classList.remove('hidden');
-                }
+                isAdmin = true;
+                document.getElementById('login-modal').classList.add('hidden');
+                document.getElementById('admin-controls').classList.remove('hidden');
+                loadQuestion();
             } else {
                 errorMsg.innerText = "Sai tài khoản hoặc mật khẩu.";
                 errorMsg.classList.remove('hidden');
@@ -459,12 +433,10 @@
             loadQuestion();
         }
 
-        // Firestore Sync
-        async function saveExamToFirestore() {
+        // Project Database Sync (GitHub-integrated storage)
+        async function saveExamToDatabase() {
             if (!isAdmin) return;
-            const examId = currentExamId || 'exam_' + Date.now();
-            currentExamId = examId;
-
+            
             const examData = {
                 optionTexts,
                 correctAnswers,
@@ -477,47 +449,47 @@
             };
 
             try {
-                await setDoc(doc(db, 'exams', examId), examData);
-                alert(`Đã lưu dữ liệu thành công! ID: ${examId}`);
-                // Update URL with examId for sharing
-                const newUrl = new URL(window.location.href);
-                newUrl.searchParams.set('examId', examId);
-                window.history.pushState({}, '', newUrl);
+                const response = await fetch('/api/save-exam', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(examData)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert("Đã lưu dữ liệu vào cơ sở dữ liệu dự án thành công!");
+                } else {
+                    throw new Error(result.error);
+                }
             } catch (error) {
                 console.error("Error saving exam:", error);
-                alert("Lỗi khi lưu dữ liệu vào Firebase.");
+                alert("Lỗi khi lưu dữ liệu: " + error.message);
             }
         }
 
-        async function loadExamFromFirestore(examId) {
+        async function loadExamFromDatabase() {
             try {
-                const docRef = doc(db, 'exams', examId);
-                const docSnap = await getDoc(docRef);
-
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    optionTexts = data.optionTexts || {};
-                    correctAnswers = data.correctAnswers || {};
-                    imageUrls = data.imageUrls || {};
-                    audioUrls = data.audioUrls || {};
-                    questionTexts = data.questionTexts || {};
-                    optionExplanations = data.optionExplanations || {};
-                    passages = data.passages || {};
-                    
-                    // Sync to localStorage
-                    localStorage.setItem('tocfl_option_texts', JSON.stringify(optionTexts));
-                    localStorage.setItem('tocfl_correct_answers', JSON.stringify(correctAnswers));
-                    localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
-                    localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
-                    localStorage.setItem('tocfl_question_texts', JSON.stringify(questionTexts));
-                    localStorage.setItem('tocfl_option_explanations', JSON.stringify(optionExplanations));
-                    localStorage.setItem('tocfl_passages', JSON.stringify(passages));
-                    
-                    currentExamId = examId;
-                    loadQuestion();
-                } else {
-                    console.log("No such exam!");
-                }
+                const response = await fetch('/api/load-exam');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                optionTexts = data.optionTexts || {};
+                correctAnswers = data.correctAnswers || {};
+                imageUrls = data.imageUrls || {};
+                audioUrls = data.audioUrls || {};
+                questionTexts = data.questionTexts || {};
+                optionExplanations = data.optionExplanations || {};
+                passages = data.passages || {};
+                
+                // Sync to localStorage
+                localStorage.setItem('tocfl_option_texts', JSON.stringify(optionTexts));
+                localStorage.setItem('tocfl_correct_answers', JSON.stringify(correctAnswers));
+                localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
+                localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
+                localStorage.setItem('tocfl_question_texts', JSON.stringify(questionTexts));
+                localStorage.setItem('tocfl_option_explanations', JSON.stringify(optionExplanations));
+                localStorage.setItem('tocfl_passages', JSON.stringify(passages));
+                
+                loadQuestion();
             } catch (error) {
                 console.error("Error loading exam:", error);
             }
@@ -531,11 +503,7 @@
 
             if (isOpening) {
                 const shareLink = document.getElementById('share-link');
-                const url = new URL(window.location.href);
-                if (currentExamId) {
-                    url.searchParams.set('examId', currentExamId);
-                }
-                shareLink.value = url.toString();
+                shareLink.value = window.location.origin;
                 
                 modal.classList.remove('opacity-0', 'pointer-events-none');
                 content.classList.remove('scale-95');
@@ -554,12 +522,8 @@
             alert("Đã sao chép liên kết!");
         }
 
-        // Check for examId in URL on load
-        const urlParams = new URLSearchParams(window.location.search);
-        const examIdFromUrl = urlParams.get('examId');
-        if (examIdFromUrl) {
-            loadExamFromFirestore(examIdFromUrl);
-        }
+        // Load exam data on startup
+        loadExamFromDatabase();
 
         // Initialize Lucide Icons
         lucide.createIcons();
@@ -1189,7 +1153,7 @@
         window.resetPractice = resetPractice;
         window.handleLogin = handleLogin;
         window.continueAsStudent = continueAsStudent;
-        window.saveExamToFirestore = saveExamToFirestore;
+        window.saveExamToDatabase = saveExamToDatabase;
         window.toggleShareModal = toggleShareModal;
         window.copyShareLink = copyShareLink;
     </script>
