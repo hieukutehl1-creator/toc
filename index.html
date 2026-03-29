@@ -105,6 +105,10 @@
                 </div>
             
             <div class="flex items-center gap-2 lg:gap-4">
+                <button onclick="toggleEditMode()" id="edit-mode-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all font-semibold text-xs lg:text-sm">
+                    <i data-lucide="edit" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Chỉnh sửa</span>
+                </button>
                 <button onclick="toggleReviewModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all font-semibold text-xs lg:text-sm">
                     <i data-lucide="list-checks" class="w-4 h-4"></i>
                     <span class="hidden sm:inline">Bảng đáp án</span>
@@ -173,12 +177,15 @@
 
                 <!-- Options -->
                 <div class="flex flex-col gap-3 lg:gap-4 pt-2 lg:pt-4">
-                    <p class="text-[10px] lg:text-sm font-semibold uppercase tracking-wider text-gray-400">Chọn đáp án</p>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 lg:gap-4" id="options-container">
-                        <button onclick="selectOption('A')" id="opt-A" class="option-btn py-4 lg:py-6 rounded-xl text-xl lg:text-2xl font-bold transition-all duration-200 border-2 bg-white text-gray-700 border-gray-200 active:scale-95">A</button>
-                        <button onclick="selectOption('B')" id="opt-B" class="option-btn py-4 lg:py-6 rounded-xl text-xl lg:text-2xl font-bold transition-all duration-200 border-2 bg-white text-gray-700 border-gray-200 active:scale-95">B</button>
-                        <button onclick="selectOption('C')" id="opt-C" class="option-btn py-4 lg:py-6 rounded-xl text-xl lg:text-2xl font-bold transition-all duration-200 border-2 bg-white text-gray-700 border-gray-200 active:scale-95">C</button>
-                        <button onclick="selectOption('D')" id="opt-D" class="option-btn py-4 lg:py-6 rounded-xl text-xl lg:text-2xl font-bold transition-all duration-200 border-2 bg-white text-gray-700 border-gray-200 active:scale-95">D</button>
+                    <div class="flex items-center justify-between">
+                        <p class="text-[10px] lg:text-sm font-semibold uppercase tracking-wider text-gray-400">Chọn đáp án</p>
+                        <div id="correct-answer-indicator" class="hidden text-xs font-bold text-green-600 flex items-center gap-1">
+                            <i data-lucide="check-circle" class="w-3 h-3"></i>
+                            Đáp án đúng: <span id="correct-answer-text">-</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3 lg:gap-4" id="options-container">
+                        <!-- Options will be injected here -->
                     </div>
                 </div>
             </div>
@@ -241,10 +248,13 @@
         let currentQuestion = 0;
         const totalQuestions = 30;
         let answers = JSON.parse(localStorage.getItem('tocfl_answers') || '{}');
+        let optionTexts = JSON.parse(localStorage.getItem('tocfl_option_texts') || '{}');
+        let correctAnswers = JSON.parse(localStorage.getItem('tocfl_correct_answers') || '{}');
+        let imageUrls = JSON.parse(localStorage.getItem('tocfl_image_urls') || '{}');
+        let audioUrls = JSON.parse(localStorage.getItem('tocfl_audio_urls') || '{}');
         let notes = localStorage.getItem('tocfl_notes') || '';
+        let isEditMode = false;
         let timeLeft = 60 * 60;
-        let imageUrls = {};
-        let audioUrls = {};
 
         // Initialize Lucide Icons
         lucide.createIcons();
@@ -355,6 +365,19 @@
             loadQuestion(); // Sync main view if needed
         }
 
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('edit-mode-btn');
+            if (isEditMode) {
+                btn.classList.replace('bg-gray-100', 'bg-blue-700');
+                btn.classList.replace('text-gray-600', 'text-white');
+            } else {
+                btn.classList.replace('bg-blue-700', 'bg-gray-100');
+                btn.classList.replace('text-white', 'text-gray-600');
+            }
+            loadQuestion();
+        }
+
         // Question Navigation
         function loadQuestion() {
             document.getElementById('question-title').innerText = `Câu ${currentQuestion + 1}`;
@@ -369,21 +392,101 @@
 
             // Update Status Badge
             const badge = document.getElementById('status-badge');
+            const isCorrect = answers[currentQuestion] === correctAnswers[currentQuestion];
+            
             if (answers[currentQuestion]) {
-                badge.innerHTML = `<span class="flex items-center gap-1 text-blue-700 font-medium"><i data-lucide="check-circle-2" class="w-3 h-3 lg:w-4 lg:h-4"></i> ${answers[currentQuestion]}</span>`;
+                if (correctAnswers[currentQuestion]) {
+                    badge.innerHTML = isCorrect 
+                        ? `<span class="flex items-center gap-1 text-green-600 font-bold"><i data-lucide="check-circle" class="w-4 h-4"></i> Chính xác</span>`
+                        : `<span class="flex items-center gap-1 text-red-500 font-bold"><i data-lucide="x-circle" class="w-4 h-4"></i> Sai rồi</span>`;
+                } else {
+                    badge.innerHTML = `<span class="flex items-center gap-1 text-blue-700 font-medium"><i data-lucide="check-circle-2" class="w-3 h-3 lg:w-4 lg:h-4"></i> Đã chọn ${answers[currentQuestion]}</span>`;
+                }
             } else {
                 badge.innerText = 'Chưa trả lời';
             }
             lucide.createIcons();
 
-            // Update Options
-            document.querySelectorAll('.option-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-700', 'text-white', 'border-blue-700', 'shadow-lg', 'scale-105');
-                const opt = btn.id.split('-')[1];
-                if (answers[currentQuestion] === opt) {
-                    btn.classList.add('bg-blue-700', 'text-white', 'border-blue-700', 'shadow-lg', 'scale-105');
+            // Render Options
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            
+            ['A', 'B', 'C', 'D'].forEach(opt => {
+                const isSelected = answers[currentQuestion] === opt;
+                const isCorrectOpt = correctAnswers[currentQuestion] === opt;
+                const text = (optionTexts[currentQuestion] && optionTexts[currentQuestion][opt]) || '';
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `group relative flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 ${
+                    isSelected 
+                    ? 'border-blue-700 bg-blue-50 shadow-md' 
+                    : 'border-gray-100 bg-white hover:border-gray-300'
+                }`;
+
+                // Option Label (A, B, C, D)
+                const label = document.createElement('button');
+                label.innerText = opt;
+                label.onclick = () => selectOption(opt);
+                label.className = `shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-lg text-lg lg:text-xl font-bold flex items-center justify-center transition-all ${
+                    isSelected 
+                    ? 'bg-blue-700 text-white' 
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                }`;
+
+                // Option Content
+                if (isEditMode) {
+                    const input = document.createElement('textarea');
+                    input.placeholder = `Nhập nội dung đáp án ${opt}...`;
+                    input.value = text;
+                    input.className = 'flex-1 bg-transparent border-none focus:ring-0 text-sm lg:text-base resize-none py-1 h-auto min-h-[40px]';
+                    input.oninput = (e) => {
+                        if (!optionTexts[currentQuestion]) optionTexts[currentQuestion] = {};
+                        optionTexts[currentQuestion][opt] = e.target.value;
+                        localStorage.setItem('tocfl_option_texts', JSON.stringify(optionTexts));
+                    };
+                    wrapper.appendChild(label);
+                    wrapper.appendChild(input);
+
+                    // Set Correct Button
+                    const setCorrectBtn = document.createElement('button');
+                    setCorrectBtn.innerHTML = `<i data-lucide="${isCorrectOpt ? 'check-circle' : 'circle'}" class="w-5 h-5"></i>`;
+                    setCorrectBtn.className = `p-2 rounded-lg transition-colors ${isCorrectOpt ? 'text-green-600' : 'text-gray-300 hover:text-green-500'}`;
+                    setCorrectBtn.title = "Đặt làm đáp án đúng";
+                    setCorrectBtn.onclick = () => {
+                        correctAnswers[currentQuestion] = opt;
+                        localStorage.setItem('tocfl_correct_answers', JSON.stringify(correctAnswers));
+                        loadQuestion();
+                    };
+                    wrapper.appendChild(setCorrectBtn);
+                } else {
+                    const content = document.createElement('div');
+                    content.className = 'flex-1 text-sm lg:text-base text-gray-700 cursor-pointer py-1';
+                    content.innerText = text || `(Trống)`;
+                    content.onclick = () => selectOption(opt);
+                    wrapper.appendChild(label);
+                    wrapper.appendChild(content);
+
+                    if (isSelected && correctAnswers[currentQuestion]) {
+                        const icon = document.createElement('div');
+                        icon.innerHTML = `<i data-lucide="${isCorrect ? 'check' : 'x'}" class="w-5 h-5"></i>`;
+                        icon.className = isCorrect ? 'text-green-600' : 'text-red-500';
+                        wrapper.appendChild(icon);
+                    }
                 }
+
+                optionsContainer.appendChild(wrapper);
             });
+            lucide.createIcons();
+
+            // Update Correct Answer Indicator
+            const indicator = document.getElementById('correct-answer-indicator');
+            const indicatorText = document.getElementById('correct-answer-text');
+            if (isEditMode && correctAnswers[currentQuestion]) {
+                indicator.classList.remove('hidden');
+                indicatorText.innerText = correctAnswers[currentQuestion];
+            } else {
+                indicator.classList.add('hidden');
+            }
 
             // Update Media
             const imgPreview = document.getElementById('image-preview');
@@ -405,7 +508,6 @@
             const audioPlaceholder = document.getElementById('audio-placeholder');
             const removeAudioBtn = document.getElementById('remove-audio');
             
-            // Pause current audio before switching
             audioPlayer.pause();
 
             if (audioUrls[currentQuestion]) {
@@ -453,36 +555,56 @@
             loadQuestion();
         }
 
-        function removeMedia(type) {
-            if (type === 'image') {
-                delete imageUrls[currentQuestion];
-            } else {
-                delete audioUrls[currentQuestion];
-            }
-            loadQuestion();
-        }
-
         // File Uploads
         document.getElementById('image-input').onchange = (e) => {
             const file = e.target.files[0];
             if (file) {
-                imageUrls[currentQuestion] = URL.createObjectURL(file);
-                loadQuestion();
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    imageUrls[currentQuestion] = event.target.result;
+                    localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
+                    loadQuestion();
+                };
+                reader.readAsDataURL(file);
             }
         };
 
         document.getElementById('audio-input').onchange = (e) => {
             const file = e.target.files[0];
             if (file) {
-                audioUrls[currentQuestion] = URL.createObjectURL(file);
-                loadQuestion();
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    audioUrls[currentQuestion] = event.target.result;
+                    localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
+                    loadQuestion();
+                };
+                reader.readAsDataURL(file);
             }
         };
+
+        function removeMedia(type) {
+            if (type === 'image') {
+                delete imageUrls[currentQuestion];
+                localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
+            } else {
+                delete audioUrls[currentQuestion];
+                localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
+            }
+            loadQuestion();
+        }
 
         function resetPractice() {
             if (confirm('Bạn có chắc chắn muốn xóa toàn bộ kết quả?')) {
                 answers = {};
+                optionTexts = {};
+                correctAnswers = {};
+                imageUrls = {};
+                audioUrls = {};
                 localStorage.removeItem('tocfl_answers');
+                localStorage.removeItem('tocfl_option_texts');
+                localStorage.removeItem('tocfl_correct_answers');
+                localStorage.removeItem('tocfl_image_urls');
+                localStorage.removeItem('tocfl_audio_urls');
                 localStorage.removeItem('tocfl_notes');
                 editor.innerHTML = '';
                 timeLeft = 60 * 60;
