@@ -219,6 +219,10 @@
                         <i data-lucide="database" class="w-4 h-4"></i>
                         <span class="hidden sm:inline">Lưu Database</span>
                     </button>
+                    <button id="clear-q-btn" onclick="clearQuestionData()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-all font-semibold text-xs lg:text-sm shadow-sm">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Xóa dữ liệu câu</span>
+                    </button>
                     <button id="share-btn" onclick="toggleShareModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all font-semibold text-xs lg:text-sm shadow-sm">
                         <i data-lucide="share-2" class="w-4 h-4"></i>
                         <span class="hidden sm:inline">Chia sẻ</span>
@@ -398,6 +402,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getStorage, ref, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
 
         // Load Firebase configuration from the project file
         const firebaseConfig = {
@@ -413,6 +418,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app, "ai-studio-8bb0aa84-1217-4de9-b461-1aa65f180bb5");
         const auth = getAuth(app);
+        const storage = getStorage(app);
 
         // State Management
         let currentQuestion = 0;
@@ -516,14 +522,30 @@
 
                 // Save each question's data
                 for (let i = 0; i < totalQuestions; i++) {
+                    const img = imageUrls[i] || '';
+                    const aud = audioUrls[i] || '';
+                    
+                    // Log sizes for debugging
+                    if (img.length > 10000 || aud.length > 10000) {
+                        console.log(`Question ${i} sizes - Image: ${img.length}, Audio: ${aud.length}`);
+                    }
+
+                    // Check for large Base64 strings (Firestore limit is 1MB per document)
+                    // We use a safe threshold of 900KB total for the document
                     const questionData = {
                         text: questionTexts[i] || '',
                         options: optionTexts[i] || {},
                         correct: correctAnswers[i] || '',
                         explanation: optionExplanations[i] || {},
-                        image: imageUrls[i] || '',
-                        audio: audioUrls[i] || ''
+                        image: img,
+                        audio: aud
                     };
+
+                    const dataSize = JSON.stringify(questionData).length;
+                    if (dataSize > 1000000) {
+                        throw new Error(`Dữ liệu câu ${i+1} quá lớn (${(dataSize/1024/1024).toFixed(2)}MB). Vui lòng xóa và tải lại ảnh/âm thanh cho câu này.`);
+                    }
+
                     await setDoc(doc(questionsRef, `q_${i}`), questionData);
                 }
 
@@ -1154,30 +1176,49 @@
         }
 
         // File Uploads
+        async function uploadFile(file, type) {
+            if (!isAdmin) return;
+            
+            const statusMsg = document.createElement('div');
+            statusMsg.className = 'fixed top-4 right-4 bg-orange-500 text-white px-6 py-3 rounded-xl shadow-2xl z-[200] font-bold animate-pulse';
+            statusMsg.innerText = `Đang tải ${type === 'image' ? 'ảnh' : 'âm thanh'} lên...`;
+            document.body.appendChild(statusMsg);
+
+            try {
+                const fileName = `${currentExamId}/q_${currentQuestion}_${Date.now()}_${file.name}`;
+                const storageRef = ref(storage, fileName);
+                
+                const snapshot = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+                
+                if (type === 'image') {
+                    imageUrls[currentQuestion] = downloadURL;
+                    localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
+                } else {
+                    audioUrls[currentQuestion] = downloadURL;
+                    localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
+                }
+                
+                statusMsg.innerText = "Tải lên thành công!";
+                statusMsg.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-xl shadow-2xl z-[200] font-bold';
+                setTimeout(() => statusMsg.remove(), 2000);
+                loadQuestion();
+            } catch (error) {
+                console.error("Upload Error:", error);
+                statusMsg.innerText = "Lỗi tải lên: " + error.message;
+                statusMsg.className = 'fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-xl shadow-2xl z-[200] font-bold';
+                setTimeout(() => statusMsg.remove(), 5000);
+            }
+        }
+
         document.getElementById('image-input').onchange = (e) => {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    imageUrls[currentQuestion] = event.target.result;
-                    localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
-                    loadQuestion();
-                };
-                reader.readAsDataURL(file);
-            }
+            if (file) uploadFile(file, 'image');
         };
 
         document.getElementById('audio-input').onchange = (e) => {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    audioUrls[currentQuestion] = event.target.result;
-                    localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
-                    loadQuestion();
-                };
-                reader.readAsDataURL(file);
-            }
+            if (file) uploadFile(file, 'audio');
         };
 
         function removeMedia(type) {
@@ -1189,6 +1230,27 @@
                 localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
             }
             loadQuestion();
+        }
+
+        function clearQuestionData() {
+            if (!confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu của câu hỏi này (bao gồm cả ảnh và âm thanh)?')) return;
+            
+            delete questionTexts[currentQuestion];
+            delete optionTexts[currentQuestion];
+            delete correctAnswers[currentQuestion];
+            delete optionExplanations[currentQuestion];
+            delete imageUrls[currentQuestion];
+            delete audioUrls[currentQuestion];
+            
+            localStorage.setItem('tocfl_question_texts', JSON.stringify(questionTexts));
+            localStorage.setItem('tocfl_option_texts', JSON.stringify(optionTexts));
+            localStorage.setItem('tocfl_correct_answers', JSON.stringify(correctAnswers));
+            localStorage.setItem('tocfl_option_explanations', JSON.stringify(optionExplanations));
+            localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
+            localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
+            
+            loadQuestion();
+            alert('Đã xóa dữ liệu câu ' + (currentQuestion + 1));
         }
 
         function resetPractice() {
@@ -1232,6 +1294,7 @@
         window.prevQuestion = prevQuestion;
         window.selectOption = selectOption;
         window.removeMedia = removeMedia;
+        window.clearQuestionData = clearQuestionData;
         window.resetPractice = resetPractice;
         window.handleLogin = handleLogin;
         window.handleGoogleLogin = handleGoogleLogin;
