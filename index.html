@@ -322,7 +322,7 @@
             if (q >= 6 && q <= 13) return 'text_only';
             if (q >= 14 && q <= 18) return 'passage_text';
             if (q >= 19 && q <= 23) return 'passage_text';
-            if (q >= 24 && q <= 27) return 'image_only';
+            if (q >= 24 && q <= 27) return 'image_text';
             if (q >= 28 && q <= 30) return 'passage_text';
             return 'default';
         }
@@ -478,7 +478,7 @@
             const qTextSection = document.getElementById('question-text-section');
             const qTextDisplay = document.getElementById('question-text-display');
             const qTextInput = document.getElementById('question-text-input');
-            const needsQText = qType === 'text_only' || qType === 'passage_text';
+            const needsQText = qType === 'text_only' || qType === 'passage_text' || qType === 'image_text';
             if (needsQText) {
                 qTextSection.classList.remove('hidden');
                 const qText = questionTexts[currentQuestion] || '';
@@ -596,7 +596,7 @@
             const imgSection = document.getElementById('image-input').closest('.space-y-4');
             const audioSection = document.getElementById('audio-input').closest('.space-y-4');
             
-            const needsImg = qType === 'audio_image' || qType === 'image_only';
+            const needsImg = qType === 'audio_image' || qType === 'image_only' || qType === 'image_text';
             const needsAudio = qType === 'audio_image';
 
             if (needsImg) {
