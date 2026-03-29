@@ -391,6 +391,25 @@
     </aside>
 
     <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFirestore, doc, getDoc, setDoc, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+
+        // Load Firebase configuration from the project file
+        const firebaseConfig = {
+            apiKey: "AIzaSyDR6iexLKZH9_77pFeQUm_3Oc8a0LnKsY8",
+            authDomain: "gen-lang-client-0601997793.firebaseapp.com",
+            projectId: "gen-lang-client-0601997793",
+            storageBucket: "gen-lang-client-0601997793.firebasestorage.app",
+            messagingSenderId: "713583653578",
+            appId: "1:713583653578:web:7a24b6b1c894890aeb3a33"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app, "ai-studio-8bb0aa84-1217-4de9-b461-1aa65f180bb5");
+        const auth = getAuth(app);
+
         // State Management
         let currentQuestion = 0;
         const totalQuestions = 30;
@@ -407,7 +426,7 @@
         let isSubmitted = false;
         let timeLeft = 60 * 60;
         let isAdmin = false;
-        let currentExamId = null;
+        let currentExamId = 'main_exam'; // Use a fixed ID for the primary database
 
         // Login Logic
         async function handleLogin() {
@@ -433,63 +452,85 @@
             loadQuestion();
         }
 
-        // Project Database Sync (GitHub-integrated storage)
+        // Firebase Sync (Shared Database)
         async function saveExamToDatabase() {
             if (!isAdmin) return;
             
-            const examData = {
-                optionTexts,
-                correctAnswers,
-                imageUrls,
-                audioUrls,
-                questionTexts,
-                optionExplanations,
-                passages,
-                updatedAt: new Date().toISOString()
-            };
+            // We'll split the data into multiple documents to avoid the 1MB limit
+            // Each question gets its own document in a subcollection
+            const examRef = doc(db, 'exams', currentExamId);
+            const questionsRef = collection(examRef, 'questions');
+
+            const statusMsg = document.createElement('div');
+            statusMsg.className = 'fixed top-4 right-4 bg-blue-700 text-white px-6 py-3 rounded-xl shadow-2xl z-[200] font-bold animate-bounce';
+            statusMsg.innerText = "Đang lưu dữ liệu...";
+            document.body.appendChild(statusMsg);
 
             try {
-                const response = await fetch('/api/save-exam', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(examData)
+                // Save metadata
+                await setDoc(examRef, {
+                    updatedAt: new Date().toISOString(),
+                    passages: passages
                 });
-                const result = await response.json();
-                if (result.success) {
-                    alert("Đã lưu dữ liệu vào cơ sở dữ liệu dự án thành công!");
-                } else {
-                    throw new Error(result.error);
+
+                // Save each question's data
+                for (let i = 0; i < totalQuestions; i++) {
+                    const questionData = {
+                        text: questionTexts[i] || '',
+                        options: optionTexts[i] || {},
+                        correct: correctAnswers[i] || '',
+                        explanation: optionExplanations[i] || {},
+                        image: imageUrls[i] || '',
+                        audio: audioUrls[i] || ''
+                    };
+                    await setDoc(doc(questionsRef, `q_${i}`), questionData);
                 }
+
+                statusMsg.innerText = "Đã lưu thành công!";
+                statusMsg.classList.replace('bg-blue-700', 'bg-green-600');
+                setTimeout(() => statusMsg.remove(), 3000);
             } catch (error) {
                 console.error("Error saving exam:", error);
-                alert("Lỗi khi lưu dữ liệu: " + error.message);
+                statusMsg.innerText = "Lỗi khi lưu: " + error.message;
+                statusMsg.classList.replace('bg-blue-700', 'bg-red-600');
+                setTimeout(() => statusMsg.remove(), 5000);
             }
         }
 
         async function loadExamFromDatabase() {
             try {
-                const response = await fetch('/api/load-exam');
-                if (!response.ok) return;
-                
-                const data = await response.json();
-                optionTexts = data.optionTexts || {};
-                correctAnswers = data.correctAnswers || {};
-                imageUrls = data.imageUrls || {};
-                audioUrls = data.audioUrls || {};
-                questionTexts = data.questionTexts || {};
-                optionExplanations = data.optionExplanations || {};
-                passages = data.passages || {};
-                
-                // Sync to localStorage
-                localStorage.setItem('tocfl_option_texts', JSON.stringify(optionTexts));
-                localStorage.setItem('tocfl_correct_answers', JSON.stringify(correctAnswers));
-                localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
-                localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
-                localStorage.setItem('tocfl_question_texts', JSON.stringify(questionTexts));
-                localStorage.setItem('tocfl_option_explanations', JSON.stringify(optionExplanations));
-                localStorage.setItem('tocfl_passages', JSON.stringify(passages));
-                
-                loadQuestion();
+                const examRef = doc(db, 'exams', currentExamId);
+                const examSnap = await getDoc(examRef);
+
+                if (examSnap.exists()) {
+                    const meta = examSnap.data();
+                    passages = meta.passages || {};
+                    localStorage.setItem('tocfl_passages', JSON.stringify(passages));
+
+                    const questionsRef = collection(examRef, 'questions');
+                    const qSnap = await getDocs(questionsRef);
+
+                    qSnap.forEach((doc) => {
+                        const i = parseInt(doc.id.split('_')[1]);
+                        const data = doc.data();
+                        questionTexts[i] = data.text || '';
+                        optionTexts[i] = data.options || {};
+                        correctAnswers[i] = data.correct || '';
+                        optionExplanations[i] = data.explanation || {};
+                        imageUrls[i] = data.image || '';
+                        audioUrls[i] = data.audio || '';
+                    });
+
+                    // Sync all to localStorage
+                    localStorage.setItem('tocfl_option_texts', JSON.stringify(optionTexts));
+                    localStorage.setItem('tocfl_correct_answers', JSON.stringify(correctAnswers));
+                    localStorage.setItem('tocfl_image_urls', JSON.stringify(imageUrls));
+                    localStorage.setItem('tocfl_audio_urls', JSON.stringify(audioUrls));
+                    localStorage.setItem('tocfl_question_texts', JSON.stringify(questionTexts));
+                    localStorage.setItem('tocfl_option_explanations', JSON.stringify(optionExplanations));
+                    
+                    loadQuestion();
+                }
             } catch (error) {
                 console.error("Error loading exam:", error);
             }

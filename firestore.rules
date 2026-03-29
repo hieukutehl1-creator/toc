@@ -20,8 +20,14 @@ service cloud.firestore {
 
     // Exams Collection
     match /exams/{examId} {
-      allow read: if true; // Everyone can read exams to practice
-      allow write: if isAdmin() && isValidExam(request.resource.data);
+      allow read: if true;
+      allow write: if isAdmin();
+      
+      // Questions Subcollection
+      match /questions/{questionId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
     }
 
     // Domain Validators
