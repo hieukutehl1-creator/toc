@@ -210,14 +210,16 @@
                 </div>
             
             <div class="flex items-center gap-2 lg:gap-4">
-                <button id="save-db-btn" onclick="saveExamToFirestore()" class="hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all font-semibold text-xs lg:text-sm shadow-sm">
-                    <i data-lucide="database" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">Lưu Database</span>
-                </button>
-                <button id="share-btn" onclick="toggleShareModal()" class="hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all font-semibold text-xs lg:text-sm shadow-sm">
-                    <i data-lucide="share-2" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">Chia sẻ</span>
-                </button>
+                <div id="admin-controls" class="hidden flex items-center gap-2 lg:gap-4">
+                    <button id="save-db-btn" onclick="saveExamToFirestore()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all font-semibold text-xs lg:text-sm shadow-sm">
+                        <i data-lucide="database" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Lưu Database</span>
+                    </button>
+                    <button id="share-btn" onclick="toggleShareModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-all font-semibold text-xs lg:text-sm shadow-sm">
+                        <i data-lucide="share-2" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Chia sẻ</span>
+                    </button>
+                </div>
                 <button onclick="toggleSubmitModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-all font-semibold text-xs lg:text-sm shadow-sm">
                     <i data-lucide="send" class="w-4 h-4"></i>
                     <span class="hidden sm:inline">Nộp bài</span>
@@ -428,8 +430,8 @@
 
         // Login Logic
         async function handleLogin() {
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
+            const user = document.getElementById('login-username').value;
+            const pass = document.getElementById('login-password').value;
             const errorMsg = document.getElementById('login-error');
 
             if (user === 'quynh1234' && pass === '12345') {
